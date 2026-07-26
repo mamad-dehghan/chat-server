@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import { DB, QUERY_MAP, tableModel } from "./storage";
+import { app } from "../server";
 
 export interface userModel {
   readonly id: number;
@@ -68,10 +69,14 @@ export const USER_QUERIES = {
   // ),
 };
 
-export const readContacts: RequestHandler = (req, res, next) => {
-  const contacts = DB.query(
-    `SELECT id, username FROM ${userModelDetails.name} WHERE id != $id`,
-  ).all({ $id: req.user.id }) as userModel[];
-  // console.log(contacts);
-  res.status(200).json(contacts).end();
+export const UserHandler = {
+  readContacts() {
+    app.get("/contacts", function (req, res, next) {
+      const contacts = DB.query(
+        `SELECT id, username FROM ${userModelDetails.name} WHERE id != $id`,
+      ).all({ $id: req.user.id }) as userModel[];
+      // console.log(contacts);
+      res.status(200).json(contacts).end();
+    });
+  },
 };

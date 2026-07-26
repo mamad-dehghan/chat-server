@@ -4,22 +4,19 @@ import express from "express";
 import { createServer } from "node:http";
 import { Server, Socket } from "socket.io";
 import {
+  AuthHandler,
   httpAuthMiddleware,
-  login,
-  singin,
   socketAuthMiddleware,
 } from "./modules/authenticate";
-import {
-  createGroup,
-  getAccessChats,
-  getDirectChat,
-  readChatMessages,
-  sendMessage,
-} from "./modules/chat";
-import { addSession, removeSession } from "./modules/session";
-import { readContacts, USER_QUERIES } from "./modules/user";
+import { ChatController } from "./modules/chat";
+import { MessageController, MessageHandler } from "./modules/message";
+import { USER_QUERIES, UserHandler } from "./modules/user";
 
-const app = express();
+DB: {
+  USER_QUERIES.createTable();
+}
+
+export const app = express();
 app.use(
   cors({
     origin: "http://localhost", // Allow your Vite client URL
@@ -38,33 +35,17 @@ const io = new Server(httpServer, {
   },
 });
 
-app.post("/login", login);
-app.post("/signin", singin);
+AuthHandler.login();
+AuthHandler.signin();
 app.use(httpAuthMiddleware);
 io.use(socketAuthMiddleware);
-app.get("/chat/messages/:id", readChatMessages);
-app.get("/contacts", readContacts);
-
-// app.all(/.*/, ((req, res) => {
-//   console.log("404 Not Found:", req.originalUrl);
-//   res.status(404).end();
-// }) as RequestHandler);
-
-// const ACTIONS = {
-//   CHAT: {
-//     getDirectChat: getDirectChat.bind(io),
-//   },
-//   MESSAGE: {
-//     sendMessage: sendMessage.bind(io),
-//   },
-// };
+MessageHandler.readChatMessages();
+UserHandler.readContacts();
 
 io.on("connection", (socket: Socket) => {
-  addSession(socket);
   socket.join(`user:${socket.user.id}`);
   socket.emit("user_info", socket.user);
-  const chats = getAccessChats(socket.user.id);
-  // const rooms = chats.map((chat) => String(chat.id));
+  const chats = ChatController.getAccessChats(socket.user.id);
   socket.join(chats.map((chat) => `chat:${chat.id}`));
   socket.emit("receive_chat", chats);
   console.table({
@@ -74,18 +55,11 @@ io.on("connection", (socket: Socket) => {
     rooms: chats.map((c) => c.name).join("|"),
   });
 
-  // Listen for chat messages
-  // socket.on("send_message", (data) => {
-  //   console.log("Message received:", data);
-  //   // Broadcast the message to all connected clients
-  //   io.emit("receive_message", data);
-  //   // io.in()
-  // });
-
-  socket.on("send_message", ({ id, room, content }) => {
+  socket.on("send_message", ({ id, room, content }, callback) => {
     if (id) {
-      const message = sendMessage.call(io, { id }, socket.user.id, content);
-      return socket.emit("send_message_successful", message);
+      return callback(
+        MessageController.sendMessage.call(socket, { id }, content),
+      );
     }
     const [type, ...others] = room.split(":");
     switch (type) {
@@ -94,14 +68,12 @@ io.on("connection", (socket: Socket) => {
         const targetUser = USER_QUERIES.findById(targetUserId);
         if (!targetUser)
           return console.log("Not Exist user: ", type, targetUserId);
-        const chat = getDirectChat.call(io, [socket.user.id, targetUser.id]);
-        // if (!socket.rooms.has(String(chat.id))) {
-        //   for (const session of getUserSessions(socket.user.id)) {
-        //     session.join(String(chat.id));
-        //   }
-        // }
-        const message = sendMessage.call(io, chat, socket.user.id, content);
-        socket.emit("send_message_successful", { message });
+        const chat = ChatController.getDirectChat.call(io, [
+          socket.user.id,
+          targetUser.id,
+        ]);
+
+        callback(MessageController.sendMessage.call(socket, chat, content));
       }
     }
   });
@@ -109,34 +81,17 @@ io.on("connection", (socket: Socket) => {
   socket.on("create-room", ({ type, name, user_ids }, callback) => {
     switch (type) {
       case "group": {
-        callback(createGroup.call(io, name, user_ids.concat(socket.user.id)));
+        callback(
+          ChatController.createGroup.call(
+            io,
+            name,
+            user_ids.concat(socket.user.id),
+          ),
+        );
       }
     }
   });
-
-  // socket.on("join_room", ({ room, type }) => {
-  //   switch (type) {
-  //     case "user": {
-  //       const targetUser = USER_QUERIES.find(room);
-  //       if (!targetUser) return console.log("Not Exist user: ", type);
-  //     }
-  //     // check user exist
-  //     // join this and target user to room
-  //     case "group":
-  //     case "channel":
-  //       console.log("Not implemented: ", type);
-  //   }
-  // });
-
-  socket.on("disconnect", () => {
-    // console.log("User disconnected:", socket.id);
-    removeSession(socket);
-  });
 });
-
-DB: {
-  USER_QUERIES.createTable();
-}
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {

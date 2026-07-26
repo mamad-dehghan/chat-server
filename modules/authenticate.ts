@@ -3,6 +3,7 @@ import { RequestHandler } from "express";
 import { HttpMiddleware, SocketMiddleware } from "../types";
 import { DB } from "./storage";
 import { USER_QUERIES, userModel, userModelDetails } from "./user";
+import { app } from "../server";
 
 const AUTH_COOKIE_NAME = "auth_token";
 
@@ -62,71 +63,79 @@ export const socketAuthMiddleware: SocketMiddleware = (socket, next) => {
   }
 };
 
-export const login: RequestHandler = (req, res, next) => {
-  // In a real app, verify password here!
-  // console.log(req.body);
-  if (!req.body.username || !req.body.password)
-    return next("Wrong username or password");
+export const AuthHandler = {
+  login() {
+    app.post("/login", function (req, res, next) {
+      // In a real app, verify password here!
+      // console.log(req.body);
+      if (!req.body.username || !req.body.password)
+        return next("Wrong username or password");
 
-  const user = AUTH_QUERIES.login({
-    username: req.body.username,
-    password: req.body.password,
-  }) as userModel | null;
+      const user = AUTH_QUERIES.login({
+        username: req.body.username,
+        password: req.body.password,
+      }) as userModel | null;
 
-  if (!user) return next("Wrong username or password");
+      if (!user) return next("Wrong username or password");
 
-  // const add = USER_QUERIES.create({
-  //   username: req.body.username,
-  //   password: req.body.password,
-  // });
+      // const add = USER_QUERIES.create({
+      //   username: req.body.username,
+      //   password: req.body.password,
+      // });
 
-  const token = JSON.stringify({
-    id: user.id,
-    username: user.username,
-  });
-  // Set the cookie
-  res.setHeader(
-    "Set-Cookie",
-    serialize(AUTH_COOKIE_NAME, token, {
-      httpOnly: true, // JS cannot read this (security)
-      secure: false, // Set to true if using HTTPS
-      sameSite: true,
-      maxAge: 60 * 10, // 10 min
-    }),
-  );
+      const token = JSON.stringify({
+        id: user.id,
+        username: user.username,
+      });
+      // Set the cookie
+      res.setHeader(
+        "Set-Cookie",
+        serialize(AUTH_COOKIE_NAME, token, {
+          httpOnly: true, // JS cannot read this (security)
+          secure: false, // Set to true if using HTTPS
+          sameSite: true,
+          maxAge: 60 * 10, // 10 min
+        }),
+      );
 
-  res.status(200).end();
-};
+      res.status(200).end();
+    });
+  },
+  signin() {
+    app.post("/signin", function (req, res, next) {
+      if (!req.body.username || !req.body.password)
+        return next("Wrong format of username or password");
 
-export const singin: RequestHandler = (req, res, next) => {
-  if (!req.body.username || !req.body.password)
-    return next("Wrong format of username or password");
+      const [[isBusyUsername]] = DB.query<
+        [[number]],
+        Record<"$username", string>
+      >(
+        `SELECT COUNT(*) FROM ${userModelDetails.name} WHERE username = $username`,
+      ).values({
+        $username: req.body.username,
+      });
+      if (isBusyUsername) return next("This username is taken already");
 
-  const [[isBusyUsername]] = DB.query<[[number]], Record<"$username", string>>(
-    `SELECT COUNT(*) FROM ${userModelDetails.name} WHERE username = $username`,
-  ).values({
-    $username: req.body.username,
-  });
-  if (isBusyUsername) return next("This username is taken already");
+      const user = USER_QUERIES.create({
+        username: req.body.username,
+        password: req.body.password,
+      });
 
-  const user = USER_QUERIES.create({
-    username: req.body.username,
-    password: req.body.password,
-  });
+      const token = JSON.stringify({
+        id: user.id,
+        username: user.username,
+      });
+      res.setHeader(
+        "Set-Cookie",
+        serialize(AUTH_COOKIE_NAME, token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: true,
+          maxAge: 60 * 10, // 10 min
+        }),
+      );
 
-  const token = JSON.stringify({
-    id: user.id,
-    username: user.username,
-  });
-  res.setHeader(
-    "Set-Cookie",
-    serialize(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: true,
-      maxAge: 60 * 10, // 10 min
-    }),
-  );
-
-  res.status(201).end();
+      res.status(201).end();
+    });
+  },
 };
