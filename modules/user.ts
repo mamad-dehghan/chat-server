@@ -1,6 +1,5 @@
-import { RequestHandler } from "express";
-import { DB, QUERY_MAP, tableModel } from "./storage";
 import { app } from "../server";
+import { DB, QUERY_MAP, tableModel } from "./storage";
 
 export interface userModel {
   readonly id: number;
@@ -60,13 +59,6 @@ export const USER_QUERIES = {
       $id: id,
     }) as userModel | null;
   },
-
-  //   DB.query(
-  //   "INSERT INTO users (username, password) VALUES ($username, $password)",
-  // ),
-  // update: DB.query(
-  //   "UPDATE users set (username, password) VALUES ($username, $password)",
-  // ),
 };
 
 export const UserHandler = {
@@ -75,7 +67,6 @@ export const UserHandler = {
       const contacts = DB.query(
         `SELECT id, username FROM ${userModelDetails.name} WHERE id != $id`,
       ).all({ $id: req.user.id }) as userModel[];
-      // console.log(contacts);
       res.status(200).json(contacts).end();
     });
   },

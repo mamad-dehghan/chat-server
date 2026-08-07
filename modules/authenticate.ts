@@ -16,6 +16,13 @@ const AUTH_QUERIES = {
       $password: row.password,
     });
   },
+  exist(username: string) {
+    return DB.query(
+      `SELECT * FROM ${userModelDetails.name} WHERE username = $username`,
+    ).values({
+      $username: username,
+    })?.[0]?.[0] as boolean;
+  },
 };
 
 export const httpAuthMiddleware: HttpMiddleware = (req, res, next) => {
@@ -30,6 +37,7 @@ export const httpAuthMiddleware: HttpMiddleware = (req, res, next) => {
   try {
     const user = token ? (JSON.parse(token) as userModel) : undefined;
     if (!user) throw new Error();
+    if (!AUTH_QUERIES.exist(user.username)) throw new Error();
 
     req.user = {
       id: user.id,
@@ -52,6 +60,7 @@ export const socketAuthMiddleware: SocketMiddleware = (socket, next) => {
   try {
     const user = token ? (JSON.parse(token) as userModel) : undefined;
     if (!user) throw new Error();
+    if (!AUTH_QUERIES.exist(user.username)) throw new Error();
 
     socket.user = {
       id: user.id,
@@ -66,8 +75,6 @@ export const socketAuthMiddleware: SocketMiddleware = (socket, next) => {
 export const AuthHandler = {
   login() {
     app.post("/login", function (req, res, next) {
-      // In a real app, verify password here!
-      // console.log(req.body);
       if (!req.body.username || !req.body.password)
         return next("Wrong username or password");
 
@@ -94,7 +101,7 @@ export const AuthHandler = {
           httpOnly: true, // JS cannot read this (security)
           secure: false, // Set to true if using HTTPS
           sameSite: true,
-          maxAge: 60 * 10, // 10 min
+          maxAge: 60 * 30, // 30 min
         }),
       );
 
@@ -131,7 +138,7 @@ export const AuthHandler = {
           httpOnly: true,
           secure: false,
           sameSite: true,
-          maxAge: 60 * 10, // 10 min
+          maxAge: 60 * 30, // 30 min
         }),
       );
 

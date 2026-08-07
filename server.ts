@@ -11,6 +11,7 @@ import {
 import { ChatController } from "./modules/chat";
 import { MessageController, MessageHandler } from "./modules/message";
 import { USER_QUERIES, UserHandler } from "./modules/user";
+import { DiskHandler } from "./modules/disk";
 
 DB: {
   USER_QUERIES.createTable();
@@ -19,7 +20,9 @@ DB: {
 export const app = express();
 app.use(
   cors({
-    origin: "http://localhost", // Allow your Vite client URL
+    origin: (origin, callback) => {
+      callback(null, origin);
+    },
     methods: ["GET", "POST"],
     credentials: true,
   }),
@@ -29,7 +32,9 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost", // Allow your Vite client URL
+    origin: (origin, callback) => {
+      callback(null, origin);
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -41,6 +46,7 @@ app.use(httpAuthMiddleware);
 io.use(socketAuthMiddleware);
 MessageHandler.readChatMessages();
 UserHandler.readContacts();
+DiskHandler.read();
 
 io.on("connection", (socket: Socket) => {
   socket.join(`user:${socket.user.id}`);
@@ -48,17 +54,11 @@ io.on("connection", (socket: Socket) => {
   const chats = ChatController.getAccessChats(socket.user.id);
   socket.join(chats.map((chat) => `chat:${chat.id}`));
   socket.emit("receive_chat", chats);
-  console.table({
-    // action: "connect",
-    username: socket.user.username,
-    // socket_id: socket.id,
-    rooms: chats.map((c) => c.name).join("|"),
-  });
 
-  socket.on("send_message", ({ id, room, content }, callback) => {
+  socket.on("send_message", async ({ id, room, ...content }, callback) => {
     if (id) {
       return callback(
-        MessageController.sendMessage.call(socket, { id }, content),
+        await MessageController.sendMessage.call(socket, { id }, content),
       );
     }
     const [type, ...others] = room.split(":");
@@ -73,7 +73,9 @@ io.on("connection", (socket: Socket) => {
           targetUser.id,
         ]);
 
-        callback(MessageController.sendMessage.call(socket, chat, content));
+        callback(
+          await MessageController.sendMessage.call(socket, chat, content),
+        );
       }
     }
   });

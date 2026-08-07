@@ -123,26 +123,25 @@ export const ChatController = {
       .map((chat) => extractUserIDsFromDirectChat(chat.name))
       .flat()
       .filter((user_id) => user_id !== userID);
-    if (directChatUserIDs.length) {
-      const directChatUsers = DB.query(
-        `SELECT id, username FROM ${userModelDetails.name} WHERE id IN (${directChatUserIDs.join(",")})`,
-      ).all() as userModel[];
-      for (const chat of chats) {
-        if (chat.type === "group") {
-          chat.displayName = chat.name;
-        }
-        if (chat.type === "direct") {
-          const [anotherID] = chat.name
-            .slice("direct-".length)
-            .split(",")
-            .filter((user_id) => +user_id !== userID);
-          if (!anotherID) continue;
-          const targetUser = directChatUsers.find(
-            (user) => user.id === +anotherID,
-          );
-          if (!targetUser) continue;
-          chat.displayName = targetUser.username;
-        }
+
+    const directChatUsers = DB.query(
+      `SELECT id, username FROM ${userModelDetails.name} WHERE id IN (${directChatUserIDs.join(",")})`,
+    ).all() as userModel[];
+    for (const chat of chats) {
+      if (chat.type === "group") {
+        chat.displayName = chat.name;
+      }
+      if (chat.type === "direct") {
+        const [anotherID] = chat.name
+          .slice("direct-".length)
+          .split(",")
+          .filter((user_id) => +user_id !== userID);
+        if (!anotherID) continue;
+        const targetUser = directChatUsers.find(
+          (user) => user.id === +anotherID,
+        );
+        if (!targetUser) continue;
+        chat.displayName = targetUser.username;
       }
     }
     return chats;
