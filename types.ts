@@ -1,5 +1,5 @@
-import { NextFunction, Request, Response } from "express";
-import { Socket, ExtendedError } from "socket.io";
+import { type NextFunction, type Request, type Response } from "express";
+import { type ExtendedError, Socket } from "socket.io";
 
 export type SocketMiddleware = (
   socket: Socket,

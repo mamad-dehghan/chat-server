@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
-import { DB, QUERY_MAP, tableModel } from "./storage";
-import { userModel, userModelDetails } from "./user";
+import { DB, QUERY_MAP, type tableModel } from "./storage.js";
+import { type userModel, userModelDetails } from "./user.js";
 
 // const openChatDB = (id: string): Database => {
 //   const db = new Database(DATABASE_BASE_PATH + `${id}.db`);
@@ -195,5 +195,22 @@ export const ChatController = {
     this.in(`chat:${created.id}`).emit("join_room", created);
 
     return created;
+  },
+  hasChatAccess(user_id: number, chat_id: number): boolean {
+    return (
+      DB.query(
+        `
+        SELECT COUNT(*)
+        FROM ${userChatModelDetails.name}
+        WHERE ${userChatModelDetails.name}.user_id = $user_id
+        AND ${userChatModelDetails.name}.chat_id = $chat_id
+      `,
+      )
+        .values({
+          $user_id: user_id,
+          $chat_id: chat_id,
+        })
+        .flat()[0] === 1
+    );
   },
 };

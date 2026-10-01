@@ -2,7 +2,8 @@ import { Database } from "bun:sqlite";
 
 export const DATABASE_BASE_PATH = "database/";
 
-export const DB = new Database(DATABASE_BASE_PATH + "mychat.db");
+// export const DB = new Database(DATABASE_BASE_PATH + "mychat.db");
+export const DB = new Database();
 DB.run("PRAGMA journal_mode = WAL;");
 
 export interface tableModel<T> {

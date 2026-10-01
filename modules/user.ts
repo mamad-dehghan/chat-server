@@ -1,5 +1,5 @@
-import { app } from "../server";
-import { DB, QUERY_MAP, tableModel } from "./storage";
+import { app } from "../server.js";
+import { DB, QUERY_MAP, type tableModel } from "./storage.js";
 
 export interface userModel {
   readonly id: number;

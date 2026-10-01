@@ -1,9 +1,8 @@
 import { parse, serialize } from "cookie";
-import { RequestHandler } from "express";
-import { HttpMiddleware, SocketMiddleware } from "../types";
-import { DB } from "./storage";
-import { USER_QUERIES, userModel, userModelDetails } from "./user";
-import { app } from "../server";
+import { type HttpMiddleware, type SocketMiddleware } from "../types.js";
+import { DB } from "./storage.js";
+import { USER_QUERIES, type userModel, userModelDetails } from "./user.js";
+import { app } from "../server.js";
 
 const AUTH_COOKIE_NAME = "auth_token";
 
@@ -75,6 +74,7 @@ export const socketAuthMiddleware: SocketMiddleware = (socket, next) => {
 export const AuthHandler = {
   login() {
     app.post("/login", function (req, res, next) {
+      console.log("in login");
       if (!req.body.username || !req.body.password)
         return next("Wrong username or password");
 
@@ -84,11 +84,6 @@ export const AuthHandler = {
       }) as userModel | null;
 
       if (!user) return next("Wrong username or password");
-
-      // const add = USER_QUERIES.create({
-      //   username: req.body.username,
-      //   password: req.body.password,
-      // });
 
       const token = JSON.stringify({
         id: user.id,
@@ -101,6 +96,7 @@ export const AuthHandler = {
           httpOnly: true, // JS cannot read this (security)
           secure: false, // Set to true if using HTTPS
           sameSite: true,
+          // path: "/",
           maxAge: 60 * 30, // 30 min
         }),
       );

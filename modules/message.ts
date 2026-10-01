@@ -1,9 +1,14 @@
 import { Socket } from "socket.io";
-import { app } from "../server";
-import { chatModel, chatModelDetails, userChatModelDetails } from "./chat";
-import { DB, QUERY_MAP, tableModel } from "./storage";
-import { userModelDetails } from "./user";
-import { DiskController, diskModel } from "./disk";
+import { app } from "../server.js";
+import {
+  ChatController,
+  type chatModel,
+  chatModelDetails,
+  userChatModelDetails,
+} from "./chat.js";
+import { DiskController, type diskModel } from "./disk.js";
+import { DB, QUERY_MAP, type tableModel } from "./storage.js";
+import { userModelDetails } from "./user.js";
 
 // declare module "socket.io/dist/typed-events" {
 //   interface DefaultEventsMap {
@@ -142,7 +147,7 @@ export const MessageController = {
     if (attachment !== null) {
       computedAttachment = [];
       for (let i = 0; i < attachment.length; i++) {
-        const currentItem = attachment[i];
+        const currentItem = attachment[i]!;
 
         if ("file" in currentItem) {
           computedAttachment.push(await DiskController.store(currentItem));
@@ -180,6 +185,64 @@ export const MessageController = {
     this.to(`chat:${chat.id}`).emit("new_message", message);
     return message;
   },
+
+  // deleteMessage(this: Socket, chat_id: number, message_ids: number[]) {
+  //   if (!ChatController.hasChatAccess(this.user.id, chat_id))
+  //     return console.log("Not Access chat: ", chat_id);
+
+  //   DB.query(
+  //     `
+  //       DELETE
+  //       FROM ${messageModelDetails_v2.name}
+  //       WHERE id IN $ids
+  //       AND user_id = $user_id
+  //     `,
+  //   ).run({
+  //     $user_id: this.user.id,
+  //     $ids: message_ids.join(", "),
+  //   });
+
+  //   for (const id of message_ids) {
+  //     this.to(`chat:${chat_id}`).emit("delete_message", id);
+  //   }
+  // },
+
+  // deleteAttachment(
+  //   this: Socket,
+  //   chat_id: number,
+  //   message_id: number,
+  //   attachment_ids: number[],
+  // ) {
+  //   if (!ChatController.hasChatAccess(this.user.id, chat_id))
+  //     return console.log("Not Access chat: ", chat_id);
+
+  //   const message = DB.query(
+  //     `
+  //     SELECT id, attachment
+  //       FROM ${messageModelDetails_v2.name}
+  //       WHERE id = $message_id
+  //       AND user_id = $user_id
+  //     `,
+  //   ).one({
+  //     $user_id: this.user.id,
+  //     message_id: message_id,
+  //   });
+  //   DB.query(
+  //     `
+  //       DELETE
+  //       FROM ${messageModelDetails_v2.name}
+  //       WHERE id IN $ids
+  //       AND user_id = $user_id
+  //     `,
+  //   ).run({
+  //     $user_id: this.user.id,
+  //     $ids: message_ids.join(", "),
+  //   });
+
+  //   for (const id of attachment_ids) {
+  //     this.to(`chat:${chat_id}`).emit("delete_message", id);
+  //   }
+  // },
 };
 
 export const MessageHandler = {

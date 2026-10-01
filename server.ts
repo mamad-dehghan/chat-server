@@ -1,4 +1,3 @@
-import bodyParser from "body-parser";
 import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
@@ -7,11 +6,11 @@ import {
   AuthHandler,
   httpAuthMiddleware,
   socketAuthMiddleware,
-} from "./modules/authenticate";
-import { ChatController } from "./modules/chat";
-import { MessageController, MessageHandler } from "./modules/message";
-import { USER_QUERIES, UserHandler } from "./modules/user";
-import { DiskHandler } from "./modules/disk";
+} from "./modules/authenticate.js";
+import { ChatController } from "./modules/chat.js";
+import { MessageController, MessageHandler } from "./modules/message.js";
+import { USER_QUERIES, UserHandler } from "./modules/user.js";
+import { DiskHandler } from "./modules/disk.js";
 
 DB: {
   USER_QUERIES.createTable();
@@ -24,11 +23,19 @@ app.use(
       callback(null, origin);
     },
     methods: ["GET", "POST"],
+    // methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    // allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
-app.use(bodyParser.json());
-const httpServer = createServer(app);
+app.use(express.json());
+const httpServer = createServer(
+  // {
+  //   key: await Bun.file("./cert.key").text(),
+  //   cert: await Bun.file("./cert.crt").text(),
+  // },
+  app,
+);
 
 const io = new Server(httpServer, {
   cors: {
@@ -93,6 +100,12 @@ io.on("connection", (socket: Socket) => {
       }
     }
   });
+
+  // socket.on("delete-message", async ({ message_ids, chat_id }, callback) => {
+  //   callback(
+  //     await MessageController.deleteMessage.call(socket, chat_id, message_ids),
+  //   );
+  // });
 });
 
 const PORT = process.env.PORT || 3000;

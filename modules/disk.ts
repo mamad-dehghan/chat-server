@@ -1,26 +1,28 @@
 import { Socket } from "socket.io";
-import { app } from "../server";
-import { userChatModelDetails } from "./chat";
+import { app } from "../server.js";
+import { userChatModelDetails } from "./chat.js";
 import {
-  directMessageAttachment,
-  messageDBModel,
-  messageModel_v2,
+  type directMessageAttachment,
+  type messageDBModel,
+  type messageModel_v2,
   messageModelDetails_v2,
   MessageUtils,
-  referrenceMessageAttachment,
-} from "./message";
-import { DB, QUERY_MAP, tableModel } from "./storage";
+  type referrenceMessageAttachment,
+} from "./message.js";
+import { DB, QUERY_MAP, type tableModel } from "./storage.js";
+import sharp from "sharp";
 
 export interface diskModel {
   readonly id: number;
   path: string;
   name: string;
   type: string;
+  details: string;
   created_at: string;
 }
 export const diskModelDetails: tableModel<diskModel> = {
   name: "disk_table",
-  fields: ["id", "path", "name", "type", "created_at"],
+  fields: ["id", "path", "name", "type", "details", "created_at"],
   defaults: {},
 };
 
@@ -43,6 +45,7 @@ DB: {
     path VARCHAR(40) NOT NULL,
     name TEXT NOT NULL,
     type VARCHAR(10) NOT NULL,
+    details TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -71,6 +74,14 @@ export const DiskController = {
       Bun.hash(file),
       name.slice(name.lastIndexOf(".")),
     ].join("");
+    let fileDetails = null;
+    if (type === "image") {
+      const metadata = await sharp(file).metadata();
+      fileDetails = {
+        width: metadata.width,
+        height: metadata.height,
+      };
+    }
 
     const { path, created_at, ...item } = QUERY_MAP.create<diskModel>(
       diskModelDetails,
@@ -78,11 +89,12 @@ export const DiskController = {
       path: fileName,
       name,
       type,
+      details: JSON.stringify(fileDetails),
       created_at: new Date().toJSON(),
     });
 
     await Bun.write(`disk/${fileName}`, file);
-    return item;
+    return { ...item, details: fileDetails };
   },
   find(this: Socket, { id, type, access }: referrenceMessageAttachment) {
     const [hasChatAccess] = DB.query(
