@@ -113,15 +113,15 @@ export const DiskController = {
 
     if (!hasChatAccess) return;
 
-    const message = DB.query(
+    const { attachment: stringifyAttachment } = DB.query(
       `SELECT attachment FROM ${messageModelDetails_v2.name} WHERE id = $message_id AND chat_id = $chat_id`,
     ).get({
       $message_id: access.message_id,
       $chat_id: access.chat_id,
-    }) as messageDBModel | null;
-    if (message) {
-      const m = MessageUtils.toModel(message);
-      const disk = m.attachment?.find((at) => at.id === id && at.type === type);
+    }) as Pick<messageDBModel, "attachment">;
+    if (stringifyAttachment) {
+      const attachment = JSON.parse(stringifyAttachment);
+      const disk = attachment?.find((at) => at.id === id && at.type === type);
       return disk;
     }
   },

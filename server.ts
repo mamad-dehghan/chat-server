@@ -101,11 +101,27 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  // socket.on("delete-message", async ({ message_ids, chat_id }, callback) => {
-  //   callback(
-  //     await MessageController.deleteMessage.call(socket, chat_id, message_ids),
-  //   );
-  // });
+  socket.on("delete-message", async (message, callback) => {
+    try {
+      callback({
+        ...MessageController.deleteMessage.call(socket, message),
+        status: true,
+      });
+    } catch (error) {
+      callback({ status: false, error });
+    }
+  });
+
+  socket.on("delete-attachments", async (message, callback) => {
+    try {
+      callback({
+        ...MessageController.deleteAttachments.call(socket, message),
+        status: true,
+      });
+    } catch (error) {
+      callback({ status: false, error });
+    }
+  });
 });
 
 const PORT = process.env.PORT || 3000;

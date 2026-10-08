@@ -2,8 +2,8 @@ import { Database } from "bun:sqlite";
 
 export const DATABASE_BASE_PATH = "database/";
 
-// export const DB = new Database(DATABASE_BASE_PATH + "mychat.db");
-export const DB = new Database();
+export const DB = new Database(DATABASE_BASE_PATH + "mychat.db");
+// export const DB = new Database();
 DB.run("PRAGMA journal_mode = WAL;");
 
 export interface tableModel<T> {
@@ -44,9 +44,13 @@ export const QUERY_MAP = {
       return DB.query(
         `UPDATE ${model.name}
           SET (${values.map((row) => row[0]).join(", ")})
-          VALUES (${values.map((row) => "$" + row[0]).join(", ")})
+          = (${values.map((row) => "$" + row[0]).join(", ")})
+          WHERE id = $id
         `,
-      ).run(Object.fromEntries(values.map((row) => ["$" + row[0], row[1]])));
+      ).run({
+        ...Object.fromEntries(values.map((row) => ["$" + row[0], row[1]])),
+        $id: row.id,
+      });
     };
   },
 };

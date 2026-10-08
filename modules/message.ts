@@ -186,63 +186,98 @@ export const MessageController = {
     return message;
   },
 
-  // deleteMessage(this: Socket, chat_id: number, message_ids: number[]) {
-  //   if (!ChatController.hasChatAccess(this.user.id, chat_id))
-  //     return console.log("Not Access chat: ", chat_id);
+  deleteMessage(
+    this: Socket,
+    message: Pick<messageModel_v2, "id" | "chat_id">,
+  ): { id: number; chat_id: number } {
+    if (!ChatController.hasChatAccess(this.user.id, message.chat_id))
+      throw "Access denied.";
 
-  //   DB.query(
-  //     `
-  //       DELETE
-  //       FROM ${messageModelDetails_v2.name}
-  //       WHERE id IN $ids
-  //       AND user_id = $user_id
-  //     `,
-  //   ).run({
-  //     $user_id: this.user.id,
-  //     $ids: message_ids.join(", "),
-  //   });
+    const res = DB.query(
+      `
+        DELETE
+        FROM ${messageModelDetails_v2.name}
+        WHERE id = $id
+        AND user_id = $user_id
+      `,
+    ).run({
+      $user_id: this.user.id,
+      $id: message.id,
+    });
 
-  //   for (const id of message_ids) {
-  //     this.to(`chat:${chat_id}`).emit("delete_message", id);
-  //   }
-  // },
+    if (!res.changes) throw "Not found or not owner.";
 
-  // deleteAttachment(
-  //   this: Socket,
-  //   chat_id: number,
-  //   message_id: number,
-  //   attachment_ids: number[],
-  // ) {
-  //   if (!ChatController.hasChatAccess(this.user.id, chat_id))
-  //     return console.log("Not Access chat: ", chat_id);
+    const payload = { id: message.id, chat_id: message.chat_id };
+    this.to(`chat:${message.chat_id}`).emit("delete_message", payload);
+    return payload;
+  },
 
-  //   const message = DB.query(
-  //     `
-  //     SELECT id, attachment
-  //       FROM ${messageModelDetails_v2.name}
-  //       WHERE id = $message_id
-  //       AND user_id = $user_id
-  //     `,
-  //   ).one({
-  //     $user_id: this.user.id,
-  //     message_id: message_id,
-  //   });
-  //   DB.query(
-  //     `
-  //       DELETE
-  //       FROM ${messageModelDetails_v2.name}
-  //       WHERE id IN $ids
-  //       AND user_id = $user_id
-  //     `,
-  //   ).run({
-  //     $user_id: this.user.id,
-  //     $ids: message_ids.join(", "),
-  //   });
+  deleteAttachments(
+    this: Socket,
+    {
+      chat_id,
+      message_id,
+      attachment_ids = [],
+    }: {
+      chat_id: number;
+      message_id: number;
+      attachment_ids?: (number | string)[];
+    },
+  ): { message: messageModel_v2 } {
+    if (!ChatController.hasChatAccess(this.user.id, chat_id))
+      throw "Access denied.";
 
-  //   for (const id of attachment_ids) {
-  //     this.to(`chat:${chat_id}`).emit("delete_message", id);
-  //   }
-  // },
+    const row = DB.query(
+      `
+      SELECT *
+      FROM ${messageModelDetails_v2.name}
+      WHERE id = $message_id
+      AND user_id = $user_id
+      AND chat_id = $chat_id
+      `,
+    ).get({
+      $user_id: this.user.id,
+      $message_id: message_id,
+      $chat_id: chat_id,
+    }) as messageDBModel | null;
+    if (!row) throw "Not found or not owner.";
+
+    const normalizedIds = attachment_ids.map((id) => Number(id));
+    let computedAttachment: messageModel_v2["attachment"] = JSON.parse(
+      row.attachment,
+    );
+    computedAttachment =
+      computedAttachment?.filter(
+        (at) => !normalizedIds.includes(Number(at.id)),
+      ) ?? null;
+    if (!computedAttachment?.length) computedAttachment = null;
+
+    const previous = MessageUtils.toModel(row);
+    const updatedMessage: messageModel_v2 = {
+      ...previous,
+      id: row.id,
+      chat_id: row.chat_id,
+      user_id: row.user_id,
+      created_at: row.created_at,
+      attachment: computedAttachment,
+      is_edited: true,
+    };
+    DB.query(
+      `
+        UPDATE ${messageModelDetails_v2.name}
+        SET attachment = $attachment, is_edited = 1
+        WHERE id = $id
+        AND user_id = $user_id
+      `,
+    ).run({
+      $attachment: JSON.stringify(computedAttachment),
+      $id: message_id,
+      $user_id: this.user.id,
+    });
+
+    this.to(`chat:${chat_id}`).emit("update_message", updatedMessage);
+    return { message: updatedMessage };
+  },
 };
 
 export const MessageHandler = {
