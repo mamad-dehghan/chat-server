@@ -5,7 +5,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch server.js"
+    "dev": "bun --watch server.js",
+    "build": "bun build ./server.ts --target=bun --bundle --outdir=dist",
+    "start": "bun run --bun dist/server.js"
   },
   "dependencies": {
     "body-parser": "^2.3.0",
